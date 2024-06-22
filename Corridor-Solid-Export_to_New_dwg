@@ -1,0 +1,116 @@
+# -*- coding: utf-8 -*-
+"""
+Created on FRIDAY 20/06/2024 BY MD
+"""
+# Load the Python Standard and DesignScript Libraries
+import sys
+import os
+import clr
+import gc  # Import garbage collection
+import time  # Import time for measuring execution duration
+
+# Add Assemblies for AutoCAD and Civil3D
+clr.AddReference('acmgd')
+clr.AddReference('acdbmgd')
+clr.AddReference('accoremgd')
+clr.AddReference('AecBaseMgd')
+clr.AddReference('AecPropDataMgd')
+clr.AddReference('AeccDbMgd')
+clr.AddReference('AeccPressurePipesMgd')
+clr.AddReference('acdbmgdbrep')
+clr.AddReference('System.Windows.Forms')
+
+# Add references to manage arrays, collections and interact with the user
+from System import *
+from System.IO import *
+from System.Collections.Generic import List
+from System.Windows.Forms import MessageBox
+
+# Import references from AutoCAD
+from Autodesk.AutoCAD.Runtime import *
+from Autodesk.AutoCAD.ApplicationServices import *
+from Autodesk.AutoCAD.EditorInput import *
+from Autodesk.AutoCAD.DatabaseServices import *
+from Autodesk.AutoCAD.Geometry import *
+
+# Create an alias to the Autodesk.AutoCAD.ApplicationServices.Application class
+import Autodesk.AutoCAD.ApplicationServices.Application as acapp
+
+# Import references from Civil3D
+from Autodesk.Civil.ApplicationServices import *
+from Autodesk.Civil.DatabaseServices import *
+from Autodesk.Aec.PropertyData.DatabaseServices import *
+
+# Inputs from Dynamo
+collected_ids = IN[0]  # Collected ObjectIds
+new_drawing_path = IN[1]  # External drawing file path
+
+# Check if the path is valid
+if not os.path.isabs(new_drawing_path):
+    OUT = "Invalid file path"
+else:
+    # Establish global variables
+    aDoc = acapp.DocumentManager.MdiActiveDocument
+    cDoc = CivilApplication.ActiveDocument
+    ed = aDoc.Editor
+
+    def CreateNewDatabase(path):
+        """
+        Create new drawing database and save it to the specified path.
+        
+        :param path: Filepath of new drawing to be created
+        :return: New Database object
+        """
+        new_db = Database(True, True)  # Create a new database in memory
+        new_db.SaveAs(path, DwgVersion.Current)  # Save the new database to the specified path
+        return new_db
+
+    def ExportEntities(entity_ids, source_db, target_db):
+        """
+        Export a batch of entities to the target database.
+        
+        :param entity_ids: List of ObjectIds of the entities to export
+        :param source_db: Source database from which the entities are exported
+        :param target_db: Target database to export to
+        :return: ObjectIdCollection of the exported entities in the target database
+        """
+        id_mapping = IdMapping()
+        object_id_collection = ObjectIdCollection(Array[ObjectId](entity_ids))  # Ensure correct type
+        source_db.WblockCloneObjects(object_id_collection, target_db.CurrentSpaceId, id_mapping, DuplicateRecordCloning.Replace, False)
+        exported_ids = ObjectIdCollection()
+        for entity_id in entity_ids:
+            exported_ids.Add(id_mapping[entity_id].Value)
+        return exported_ids
+
+    # Start timing
+    start_time = time.time()
+
+    # Create new database for export
+    target_db = CreateNewDatabase(new_drawing_path)
+
+    # Collection for all exported object IDs
+    all_exported_ids = ObjectIdCollection()
+
+    # Export collected entities in batches
+    batch_size = 10  # Define the batch size
+    with aDoc.LockDocument():
+        with aDoc.Database as db:
+            with db.TransactionManager.StartTransaction() as tr:
+                for i in range(0, len(collected_ids), batch_size):
+                    batch_ids = collected_ids[i:i + batch_size]
+                    batch_id_collection = ObjectIdCollection(Array[ObjectId](batch_ids))  # Convert to ObjectIdCollection
+                    exported_ids = ExportEntities(batch_id_collection, db, target_db)
+                    for exported_id in exported_ids:
+                        all_exported_ids.Add(exported_id)
+
+                    # Force garbage collection
+                    gc.collect()
+
+                tr.Commit()
+
+    # Save the target database
+    target_db.SaveAs(new_drawing_path, DwgVersion.Current)
+
+    # Measure elapsed time
+    elapsed_time = time.time() - start_time
+    OUT = "Export successful, time taken: {:.2f} seconds".format(elapsed_time)
