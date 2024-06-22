@@ -1,0 +1,745 @@
+{
+  "Uuid": "ad76e5ed-f613-4b94-8b9a-428343aa3c6e",
+  "IsCustomNode": false,
+  "Description": null,
+  "Name": "Project_Data_Import 4",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "NodeType": "BooleanInputNode",
+      "InputValue": false,
+      "Id": "550e58b8f1c74f3d859c563215fa960d",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "55f7a072936d4d54bb68d14d424b0ff3",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Selection between a true and false."
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSOffice.Data.ImportCSV@string,bool",
+      "Id": "1517aaffb85c4e879adb94fc4469eb6d",
+      "Inputs": [
+        {
+          "Id": "438ccde93d494ccb952ededd906be8fb",
+          "Name": "filePath",
+          "Description": "CSV file to be converted into a list\n\nstring",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "1361bed965274041a02447ae10d6f7e5",
+          "Name": "transpose",
+          "Description": "Toggle to transpose the imported data\n\nbool\nDefault value : false",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "79aa455d45de40aa8eb15968d0ff3319",
+          "Name": "list",
+          "Description": "List containing the items in the CSV file",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Imports data from a CSV (comma separated values) file, put the items into a list and transpose it if needed.\n\nData.ImportCSV (filePath: string, transpose: bool = false): var[]..[]"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.Filename, CoreNodeModels",
+      "HintPath": "C:\\MYFILES\\CIVIL 3D\\DYNAMO\\EDMUND N\\DATA_EXPORT.csv",
+      "InputValue": ".\\DATA_EXPORT.csv",
+      "NodeType": "ExtensionNode",
+      "Id": "239fc2e879db414593f59c35c96e205f",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "cec7a0e34f1a458aa2d3afe336c4e885",
+          "Name": "",
+          "Description": "Filename",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows you to select a file on the system to get its file path."
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "import sys\r\nimport clr\r\n\r\n# Add Assemblies for AutoCAD and Civil3D\r\nclr.AddReference('AcMgd')\r\nclr.AddReference('AcCoreMgd')\r\nclr.AddReference('AcDbMgd')\r\nclr.AddReference('AecBaseMgd')\r\nclr.AddReference('AecPropDataMgd')\r\nclr.AddReference('AeccDbMgd')\r\n\r\n# Import references from AutoCAD\r\nfrom Autodesk.AutoCAD.Runtime import *\r\nfrom Autodesk.AutoCAD.ApplicationServices import *\r\nfrom Autodesk.AutoCAD.EditorInput import *\r\nfrom Autodesk.AutoCAD.DatabaseServices import *\r\nfrom Autodesk.AutoCAD.Geometry import *\r\nfrom Autodesk.Civil.ApplicationServices import *\r\nfrom Autodesk.Civil.DatabaseServices import *\r\nfrom System.Collections.Generic import List\r\nfrom Autodesk.Aec.PropertyData.DatabaseServices import PropertyDataServices\r\nfrom System import Array \r\n\r\n# DEVELOPED BY MD\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\ncsv_order = IN[0]  # List of handles from CSV\r\nEnd_Km = IN[1]\r\nStart_Km = IN[2]\r\nEnd_Km_Check = []\r\nStart_Km_Check = []\r\nPROPERTY_SET_DEF_NAME = IN[3]\r\nPROPERTY_SET_NAME_1 = IN[4]\r\nPROPERTY_SET_NAME_2 = IN[5]\r\ni=0\r\nj =0\r\nhandles = []\r\nsorted_obj = []\r\n\r\nadoc = Application.DocumentManager.MdiActiveDocument\r\neditor = adoc.Editor\r\n\r\nwith adoc.LockDocument():\r\n    with adoc.Database as db:\r\n        with db.TransactionManager.StartTransaction() as trans:\r\n            # Access the Block Table Record for the Model Space\r\n            bt = trans.GetObject(db.BlockTableId, OpenMode.ForWrite)\r\n            btr = trans.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite)\r\n            \r\n            for obj_handle in csv_order:\r\n                end_value = str(End_Km[i])\r\n                start_value = str(Start_Km[i])\r\n                handle_str = obj_handle.ToString()\r\n                \r\n                for objId in btr:\r\n                    obj = trans.GetObject(objId, OpenMode.ForWrite)\r\n                    if isinstance(obj, Solid3d):\r\n                        if obj.Handle.ToString() == handle_str:\r\n                            handles.append(obj.Handle)\r\n                            sorted_obj.append(obj)\r\n                            psDefsUsed = PropertyDataServices.GetPropertySets(obj)\r\n                            for psDefId in psDefsUsed:\r\n                                psDef = trans.GetObject(psDefId, OpenMode.ForWrite)\r\n                                if psDef.PropertySetDefinitionName == PROPERTY_SET_DEF_NAME:\r\n                                    id = psDef.PropertyNameToId(PROPERTY_SET_NAME_1)\r\n                                    psDef.SetAt(id,end_value)\r\n                                    id = psDef.PropertyNameToId(PROPERTY_SET_NAME_2)\r\n                                    psDef.SetAt(id,start_value)\r\n                                    End_Km_Check.append(end_value)\r\n                                    Start_Km_Check.append(start_value)\r\n                                    i = i+1\r\n                                    j = j+1                                    \r\n            \t\t\t\t\r\n            \r\n            # Commit before end transaction\r\n            trans.Commit()\r\n            pass\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = handles,End_Km_Check,Start_Km_Check\r\n",
+      "Engine": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "6b777dfc9e2648d7ba80a5cd21ddabea",
+      "Inputs": [
+        {
+          "Id": "83e2088f4235422ba2a30a4e7ffb82a4",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "5feb022c4ff445ed95a7437030e39c0e",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "1ccc0cd6f162488786b57b513f2f0442",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "c53f7e1ce86d43ddb9dc6597b78896b1",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8764acda00a441cfb6dba2bc8766c99d",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "1b3de8437ae3427abce466ebf6bc1823",
+          "Name": "IN[5]",
+          "Description": "Input #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "a07594b1dce34eda9a9aa5b18c988d7a",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\n\r\n# Add Assemblies for AutoCAD and Civil3D\r\nclr.AddReference('AcMgd')\r\nclr.AddReference('AcCoreMgd')\r\nclr.AddReference('AcDbMgd')\r\nclr.AddReference('AecBaseMgd')\r\nclr.AddReference('AecPropDataMgd')\r\nclr.AddReference('AeccDbMgd')\r\n\r\n# Import references from AutoCAD\r\nfrom Autodesk.AutoCAD.Runtime import *\r\nfrom Autodesk.AutoCAD.ApplicationServices import *\r\nfrom Autodesk.AutoCAD.EditorInput import *\r\nfrom Autodesk.AutoCAD.DatabaseServices import *\r\nfrom Autodesk.AutoCAD.Geometry import *\r\n\r\n# Import references from Civil3D\r\nfrom Autodesk.Civil.ApplicationServices import *\r\nfrom Autodesk.Civil.DatabaseServices import *\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\ndataEnteringNode = IN\r\n\r\nadoc = Application.DocumentManager.MdiActiveDocument\r\neditor = adoc.Editor\r\n\r\nwith adoc.LockDocument():\r\n    with adoc.Database as db:\r\n\r\n        with db.TransactionManager.StartTransaction() as t:\r\n            # Place your code below\r\n            # \r\n            #\r\n\r\n            # Commit before end transaction\r\n            #t.Commit()\r\n            pass\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = IN[0][2][2:]\r\n",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "f691c19d09704b47b02e28d0354a4932",
+      "Inputs": [
+        {
+          "Id": "49b87ab059f9446d9a09e943194ff3f6",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "6fb5813e90af4b89801fbf93a9241e7b",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "a4a40671354d4e8e8d0d8ecd50a09301",
+      "Inputs": [
+        {
+          "Id": "c7667e857c9446619400ce67220f4e26",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "400ee30a314a40f98c20778748019126",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\n\r\n# Add Assemblies for AutoCAD and Civil3D\r\nclr.AddReference('AcMgd')\r\nclr.AddReference('AcCoreMgd')\r\nclr.AddReference('AcDbMgd')\r\nclr.AddReference('AecBaseMgd')\r\nclr.AddReference('AecPropDataMgd')\r\nclr.AddReference('AeccDbMgd')\r\n\r\n# Import references from AutoCAD\r\nfrom Autodesk.AutoCAD.Runtime import *\r\nfrom Autodesk.AutoCAD.ApplicationServices import *\r\nfrom Autodesk.AutoCAD.EditorInput import *\r\nfrom Autodesk.AutoCAD.DatabaseServices import *\r\nfrom Autodesk.AutoCAD.Geometry import *\r\n\r\n# Import references from Civil3D\r\nfrom Autodesk.Civil.ApplicationServices import *\r\nfrom Autodesk.Civil.DatabaseServices import *\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\ndataEnteringNode = IN\r\n\r\nadoc = Application.DocumentManager.MdiActiveDocument\r\neditor = adoc.Editor\r\n\r\nwith adoc.LockDocument():\r\n    with adoc.Database as db:\r\n\r\n        with db.TransactionManager.StartTransaction() as t:\r\n            # Place your code below\r\n            # \r\n            #\r\n\r\n            # Commit before end transaction\r\n            #t.Commit()\r\n            pass\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = IN[0][7][2:]\r\n",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "3488888311fd4e9397beb561ab6c27d5",
+      "Inputs": [
+        {
+          "Id": "80418ac1e1644284a7cf0a3fd8f1c702",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "f080a12ff78146a5b366099824473a30",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\n\r\n# Add Assemblies for AutoCAD and Civil3D\r\nclr.AddReference('AcMgd')\r\nclr.AddReference('AcCoreMgd')\r\nclr.AddReference('AcDbMgd')\r\nclr.AddReference('AecBaseMgd')\r\nclr.AddReference('AecPropDataMgd')\r\nclr.AddReference('AeccDbMgd')\r\n\r\n# Import references from AutoCAD\r\nfrom Autodesk.AutoCAD.Runtime import *\r\nfrom Autodesk.AutoCAD.ApplicationServices import *\r\nfrom Autodesk.AutoCAD.EditorInput import *\r\nfrom Autodesk.AutoCAD.DatabaseServices import *\r\nfrom Autodesk.AutoCAD.Geometry import *\r\n\r\n# Import references from Civil3D\r\nfrom Autodesk.Civil.ApplicationServices import *\r\nfrom Autodesk.Civil.DatabaseServices import *\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\ndataEnteringNode = IN\r\n\r\nadoc = Application.DocumentManager.MdiActiveDocument\r\neditor = adoc.Editor\r\n\r\nwith adoc.LockDocument():\r\n    with adoc.Database as db:\r\n\r\n        with db.TransactionManager.StartTransaction() as t:\r\n            # Place your code below\r\n            # \r\n            #\r\n\r\n            # Commit before end transaction\r\n            #t.Commit()\r\n            pass\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = IN[0][8][2:]\r\n",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "2b1e81b2453d413ab04173a2b17904eb",
+      "Inputs": [
+        {
+          "Id": "46add825f8fe467f8c0a878d2beb6827",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "4ed01346f1da499e928c8483643252a8",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "SM_Asset",
+      "Id": "46bc613f7b264563bff9887f0771fdd3",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "630b1d04c808488099dd662f89061b6a",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Creates a string."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "TfNSW_EndKm",
+      "Id": "7966a2af58524b899eed526ff2f7bb24",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "648e261c5e1a4c34bb10595c444f658e",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Creates a string."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "TfNSW_StartKm",
+      "Id": "01b5c357ac4047ad8d71a5c713432426",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1a8111b5d8da4f3d9642530e282196cb",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Creates a string."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "d4b19e7bcc4e4b628641a412768c165b",
+      "Inputs": [
+        {
+          "Id": "6b8ada21528e4a338a07d148bc0e2f7e",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "561aec8055154030839856423fec912b",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "791ee36349f8473f93a262de460a2736",
+      "Inputs": [
+        {
+          "Id": "e49b89c205774db6832a0eff54df0de0",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "540e9a2e9c9c4de49d8f35c2f0f6cc07",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "81ec8d717b114939884b4708ae0bdb0e",
+      "Inputs": [
+        {
+          "Id": "43ba4d0e5e354ec69cba1f424f55ec7d",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "bb5cd2f50a404a6fb5e0db546f8c48c9",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "55f7a072936d4d54bb68d14d424b0ff3",
+      "End": "1361bed965274041a02447ae10d6f7e5",
+      "Id": "92f7c9f61c6047ee95d64a5c78ac5a9d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "79aa455d45de40aa8eb15968d0ff3319",
+      "End": "49b87ab059f9446d9a09e943194ff3f6",
+      "Id": "50ad8c8bfa674d3784f692196c1327c2",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "79aa455d45de40aa8eb15968d0ff3319",
+      "End": "80418ac1e1644284a7cf0a3fd8f1c702",
+      "Id": "44094941f9144115812115f5fe8aa7ee",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "79aa455d45de40aa8eb15968d0ff3319",
+      "End": "46add825f8fe467f8c0a878d2beb6827",
+      "Id": "3064924be51841b5ab48087ff8dd2814",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "cec7a0e34f1a458aa2d3afe336c4e885",
+      "End": "438ccde93d494ccb952ededd906be8fb",
+      "Id": "80cfb61acf624daa8a4dc41e4c62494b",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "a07594b1dce34eda9a9aa5b18c988d7a",
+      "End": "c7667e857c9446619400ce67220f4e26",
+      "Id": "2a4ee891d0a54bbc8c789bcb39ae0767",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6fb5813e90af4b89801fbf93a9241e7b",
+      "End": "83e2088f4235422ba2a30a4e7ffb82a4",
+      "Id": "1c169607d78c46ef88334c5d33aaa517",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6fb5813e90af4b89801fbf93a9241e7b",
+      "End": "6b8ada21528e4a338a07d148bc0e2f7e",
+      "Id": "52ef8bb718474988865b965a5e04d333",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f080a12ff78146a5b366099824473a30",
+      "End": "1ccc0cd6f162488786b57b513f2f0442",
+      "Id": "1e278f1da77548718425bc98d4e0a24f",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f080a12ff78146a5b366099824473a30",
+      "End": "43ba4d0e5e354ec69cba1f424f55ec7d",
+      "Id": "cc96da2353434f5d8bb7eaddd1caad07",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "4ed01346f1da499e928c8483643252a8",
+      "End": "5feb022c4ff445ed95a7437030e39c0e",
+      "Id": "d085efb97013457d8be9423647204b29",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "4ed01346f1da499e928c8483643252a8",
+      "End": "e49b89c205774db6832a0eff54df0de0",
+      "Id": "d0e6d05c015d44c4af1a2f0cbbfd6162",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "630b1d04c808488099dd662f89061b6a",
+      "End": "c53f7e1ce86d43ddb9dc6597b78896b1",
+      "Id": "d3ae5c0f468a43939b0f7f3162b9f26c",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "648e261c5e1a4c34bb10595c444f658e",
+      "End": "8764acda00a441cfb6dba2bc8766c99d",
+      "Id": "3247e67aebaa419f83ee18ccf109cd4d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "1a8111b5d8da4f3d9642530e282196cb",
+      "End": "1b3de8437ae3427abce466ebf6bc1823",
+      "Id": "503537966cb94976b350f544edf9e3fe",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.15",
+      "Data": {}
+    }
+  ],
+  "Author": "None provided",
+  "Linting": {
+    "activeLinter": "None",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.13.1.3887",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "Background Preview",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Name": "Boolean",
+        "ShowGeometry": true,
+        "Id": "550e58b8f1c74f3d859c563215fa960d",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 308.63356474165448,
+        "Y": 1113.4529977248039
+      },
+      {
+        "Name": "Extract All Columns",
+        "ShowGeometry": true,
+        "Id": "1517aaffb85c4e879adb94fc4469eb6d",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 477.77057795855444,
+        "Y": 504.84307043360491
+      },
+      {
+        "Name": "File Path",
+        "ShowGeometry": true,
+        "Id": "239fc2e879db414593f59c35c96e205f",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -58.606118396889883,
+        "Y": 494.89857856653873
+      },
+      {
+        "Name": "Python Script",
+        "ShowGeometry": true,
+        "Id": "6b777dfc9e2648d7ba80a5cd21ddabea",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1705.10624945478,
+        "Y": 384.256825585151
+      },
+      {
+        "Name": "Extract 3rd Column(Object Number)",
+        "ShowGeometry": true,
+        "Id": "f691c19d09704b47b02e28d0354a4932",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1167.2072634209117,
+        "Y": 78.365123162899408
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "a4a40671354d4e8e8d0d8ecd50a09301",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2193.1306499904349,
+        "Y": 136.02862609279816
+      },
+      {
+        "Name": "Extract 8th Column(Start_km)",
+        "ShowGeometry": true,
+        "Id": "3488888311fd4e9397beb561ab6c27d5",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1225.8977550612879,
+        "Y": 413.76115942877431
+      },
+      {
+        "Name": "Extract 9th Column(End_km)",
+        "ShowGeometry": true,
+        "Id": "2b1e81b2453d413ab04173a2b17904eb",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1189.8185420064974,
+        "Y": 235.97458345066508
+      },
+      {
+        "Name": "String",
+        "ShowGeometry": true,
+        "Id": "46bc613f7b264563bff9887f0771fdd3",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1271.6647786614744,
+        "Y": 576.38178290921758
+      },
+      {
+        "Name": "String",
+        "ShowGeometry": true,
+        "Id": "7966a2af58524b899eed526ff2f7bb24",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1245.2949345896043,
+        "Y": 722.65711760268528
+      },
+      {
+        "Name": "String",
+        "ShowGeometry": true,
+        "Id": "01b5c357ac4047ad8d71a5c713432426",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1230.0593956896003,
+        "Y": 861.16262465729051
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "d4b19e7bcc4e4b628641a412768c165b",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1052.5385860537481,
+        "Y": -475.81073529983405
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "791ee36349f8473f93a262de460a2736",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1919.3130825971402,
+        "Y": -101.67511234233677
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "81ec8d717b114939884b4708ae0bdb0e",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1813.9586497413711,
+        "Y": 796.063364808941
+      }
+    ],
+    "Annotations": [
+      {
+        "Id": "31c07943b61a4f3289d16383a302ccdc",
+        "Title": "Import Excel Property set",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "239fc2e879db414593f59c35c96e205f"
+        ],
+        "HasNestedGroups": false,
+        "Left": -68.606118396889883,
+        "Top": 291.89857856653873,
+        "Width": 205.0,
+        "Height": 344.0,
+        "FontSize": 36.0,
+        "InitialTop": 494.89857856653873,
+        "InitialHeight": 145.0,
+        "TextblockHeight": 193.0,
+        "Background": "#FFFFB8D8"
+      }
+    ],
+    "X": -1540.5267716806811,
+    "Y": 10.42978186089897,
+    "Zoom": 1.1570476014988782
+  }
+}
