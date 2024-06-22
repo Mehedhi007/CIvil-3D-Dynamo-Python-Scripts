@@ -1,0 +1,256 @@
+{
+  "Uuid": "59f14e87-610a-4cb2-886d-6435bae990bd",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "LAYER__ITEM_NUMBER_FIELDS",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\n\r\n# Add Assemblies for AutoCAD and Civil3D\r\nclr.AddReference('AcMgd')\r\nclr.AddReference('AcCoreMgd')\r\nclr.AddReference('AcDbMgd')\r\nclr.AddReference('AecBaseMgd')\r\nclr.AddReference('AecPropDataMgd')\r\nclr.AddReference('AeccDbMgd')\r\n\r\n# Import references from AutoCAD\r\nfrom Autodesk.AutoCAD.Runtime import *\r\nfrom Autodesk.AutoCAD.ApplicationServices import *\r\nfrom Autodesk.AutoCAD.EditorInput import *\r\nfrom Autodesk.AutoCAD.DatabaseServices import *\r\nfrom Autodesk.AutoCAD.Geometry import *\r\n\r\n# Import references from Civil3D\r\nfrom Autodesk.Civil.ApplicationServices import *\r\nfrom Autodesk.Civil.DatabaseServices import *\r\nfrom System.Collections.Generic import List\r\nfrom Autodesk.Aec.PropertyData.DatabaseServices import PropertyDataServices\r\n\r\n#DEVELOPED BY MD\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\nextracted_info = []\r\ntest_extracted_info = []\r\n\r\nuserValue = IN[0]\r\nuserLayer = IN[1]\r\n\r\nadoc = Application.DocumentManager.MdiActiveDocument\r\neditor = adoc.Editor\r\n\r\nwith adoc.LockDocument():\r\n    with adoc.Database as db:\r\n\r\n        with db.TransactionManager.StartTransaction() as trans:\r\n            # Access the Block Table Record for the Model Space(This is mainly to get access of the Model Space Contents)\r\n            bt = trans.GetObject(db.BlockTableId, OpenMode.ForWrite)\r\n            btr = trans.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite)\r\n    \r\n            # Iterate through all objects in the Model Space\r\n            for objId in btr:\r\n            \t# Grabs Each Object By Taking in objId as argument\r\n                obj = trans.GetObject(objId, OpenMode.ForWrite)\r\n                #checks if the object layer is matched with the layer user defined\r\n                if obj.Layer == userLayer:\r\n                 \t# Retrieve ALL property set definitions used by the object\r\n                    psDefsUsed = PropertyDataServices.GetPropertySets(obj)\r\n                    # Check if the \"Item\" Property Set Definition is used by the object\r\n                    for psDefId in psDefsUsed:\r\n                        psDef = trans.GetObject(psDefId, OpenMode.ForWrite)\r\n                        if psDef.PropertySetDefinitionName == \"Item\":\r\n                        \tid = psDef.PropertyNameToId(\"Number\")\r\n                        \tvalue = psDef.GetAt(id)\r\n                        \tif value is None or value == \"\":\r\n                        \t\tsavedValue = 0\r\n                        \telse:\r\n                        \t\textracted_info.append(value)\r\n    \t\t\t\r\n\t\t\tif extracted_info:\t\t\r\n\t\t\t\tarrayValue = extracted_info[-1]\t\r\n\t\t\t\r\n\t\t\t# Iterate through all objects in the Model Space\r\n            for objId in btr:\r\n            \t# Grabs Each Object By Taking in objId as argument\r\n                obj = trans.GetObject(objId, OpenMode.ForWrite)\r\n                #checks if the object layer is matched with the layer user defined\r\n                if obj.Layer == userLayer:\r\n                 \t# Retrieve ALL property set definitions used by the object\r\n                    psDefsUsed = PropertyDataServices.GetPropertySets(obj)\r\n                    # Check if the \"Item\" Property Set Definition is used by the object\r\n                    for psDefId in psDefsUsed:\r\n                        psDef = trans.GetObject(psDefId, OpenMode.ForWrite)\r\n                        if psDef.PropertySetDefinitionName == \"Item\":\r\n                        \tid = psDef.PropertyNameToId(\"Number\")\r\n                        \tvalue = psDef.GetAt(id)\r\n                        \ttest_extracted_info.append(value)\r\n                        \tif value is None or value == \"\":\r\n                        \t\tif not extracted_info:\r\n                        \t\t\tpsDef.SetAt(id,userValue)\r\n                        \t\t\tuserValue_int = int(userValue)+1\r\n                        \t\t\tuserValue = str(userValue_int).zfill(len(userValue))\t\r\n                        \t\telse:\r\n                \t\t\t\t\twhile arrayValue in extracted_info:\r\n                \t\t\t\t\t\tarrayValue_int = int(arrayValue)+1\r\n                \t\t\t\t\t\tarrayValue = str(arrayValue_int).zfill(len(arrayValue))\r\n                \t\t\t\t\tpsDef.SetAt(id,arrayValue)\r\n                \t\t\t\t\textracted_info.append(arrayValue)\r\n\t                \t\t\t\r\n            # Commit before end transaction\r\n            trans.Commit()\r\n            pass\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = test_extracted_info\r\n",
+      "Engine": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "e5a8299379234957882088dde40d4483",
+      "Inputs": [
+        {
+          "Id": "cdef91b928844ea3b70e661f8cd2894e",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "b9cf4fd8c0af41a1966f76e97b3ac423",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "6e0dd947998047338f264846bb85e68e",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "000061",
+      "Id": "2845304f48564bf1ad582ca1a715258d",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "17fac140a58d4e878624f0f6954c87d7",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Creates a string."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "5cd0debc7d5049cca63549ae7658e91d",
+      "Inputs": [
+        {
+          "Id": "12886a195acd47d684c986e40a006c3b",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "c65495b6f569416490450fbf4ade7196",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "V-NODE",
+      "Id": "28dcbb6fb8b04bf69296c1e3b13879c6",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "28a816615d6341a4865ad2495521d3ce",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Creates a string."
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "6e0dd947998047338f264846bb85e68e",
+      "End": "12886a195acd47d684c986e40a006c3b",
+      "Id": "40072e78d8e0421289f1085cc2f0ce7d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "17fac140a58d4e878624f0f6954c87d7",
+      "End": "b9cf4fd8c0af41a1966f76e97b3ac423",
+      "Id": "4ae35dedce0148b78c21764f1b998628",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "28a816615d6341a4865ad2495521d3ce",
+      "End": "cdef91b928844ea3b70e661f8cd2894e",
+      "Id": "f0b15c7afeb7454ba1bc0d410ec504cd",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.13",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "None",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.13.1.3887",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "Background Preview",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Name": "Assign to Item --> Number",
+        "ShowGeometry": true,
+        "Id": "e5a8299379234957882088dde40d4483",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 966.93175301126269,
+        "Y": 189.65432700398136
+      },
+      {
+        "Name": "UserDefinedNumber",
+        "ShowGeometry": true,
+        "Id": "2845304f48564bf1ad582ca1a715258d",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 638.36747590135337,
+        "Y": 312.61703438774288
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "5cd0debc7d5049cca63549ae7658e91d",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 703.91224906873379,
+        "Y": 484.71698299693196
+      },
+      {
+        "Name": "LayerName",
+        "ShowGeometry": true,
+        "Id": "28dcbb6fb8b04bf69296c1e3b13879c6",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 706.27714688855485,
+        "Y": 138.02454453746805
+      }
+    ],
+    "Annotations": [
+      {
+        "Id": "0bb372f129214389801c52defd430d8e",
+        "Title": "Assigning Field to Item-->Number\r\n(Objects By Layers)\r\n",
+        "DescriptionText": "Grabs Objects By LayerName and Assigns Value to Them Using User Defined Number",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "e5a8299379234957882088dde40d4483",
+          "2845304f48564bf1ad582ca1a715258d",
+          "28dcbb6fb8b04bf69296c1e3b13879c6"
+        ],
+        "HasNestedGroups": false,
+        "Left": 628.36747590135337,
+        "Top": 22.024544537468046,
+        "Width": 622.5642771099092,
+        "Height": 422.59248985027483,
+        "FontSize": 24.0,
+        "InitialTop": 138.02454453746805,
+        "InitialHeight": 292.18089969653244,
+        "TextblockHeight": 106.0,
+        "Background": "#FFB9F9E1"
+      }
+    ],
+    "X": -573.05165290195441,
+    "Y": 13.235133148046543,
+    "Zoom": 0.994488700419556
+  }
+}
