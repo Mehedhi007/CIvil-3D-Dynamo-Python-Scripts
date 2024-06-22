@@ -1,0 +1,130 @@
+# -*- coding: utf-8 -*-
+"""
+Created on FRIDAY 21/06/2024 BY MD
+"""
+# Load the Python Standard and DesignScript Libraries
+import sys
+import os
+import clr
+
+# Add Assemblies for AutoCAD and Civil3D
+clr.AddReference('acmgd')
+clr.AddReference('acdbmgd')
+clr.AddReference('accoremgd')
+clr.AddReference('AecBaseMgd')
+clr.AddReference('AecPropDataMgd')
+clr.AddReference('AeccDbMgd')
+clr.AddReference('AeccPressurePipesMgd')
+clr.AddReference('acdbmgdbrep')
+clr.AddReference('System.Windows.Forms')
+
+# Add references to manage arrays, collections and interact with the user
+from System import *
+from System.IO import *
+from System.Collections.Generic import List
+from System.Windows.Forms import MessageBox
+
+# Import references from AutoCAD
+from Autodesk.AutoCAD.Runtime import *
+from Autodesk.AutoCAD.ApplicationServices import *
+from Autodesk.AutoCAD.EditorInput import *
+from Autodesk.AutoCAD.DatabaseServices import *
+from Autodesk.AutoCAD.Geometry import *
+
+# Create an alias to the Autodesk.AutoCAD.ApplicationServices.Application class
+import Autodesk.AutoCAD.ApplicationServices.Application as acapp
+
+# Import references from Civil3D
+from Autodesk.Civil.ApplicationServices import *
+from Autodesk.Civil.DatabaseServices import *
+
+# Inputs from Dynamo
+corridor_names = IN[0]  # List or single corridor name to export
+export_solids = IN[1]  # Boolean indicating if the Solids should be exported
+export_bodies = IN[2]  # Boolean indicating if the Body objects should be exported
+
+# Ensure corridor_names is a list
+if not isinstance(corridor_names, list):
+    corridor_names = [corridor_names]
+
+# Establish global variables
+aDoc = acapp.DocumentManager.MdiActiveDocument
+cDoc = CivilApplication.ActiveDocument
+ed = aDoc.Editor
+
+def CollectSolidsAndBodies(corridor, export_solids, export_bodies):
+    """
+    Collect solids and bodies from the corridor.
+    
+    :param corridor: Corridor object to collect from
+    :param export_solids: Boolean indicating if solids should be collected
+    :param export_bodies: Boolean indicating if bodies should be collected
+    :return: Collection of collected Object IDs
+    """
+    collected_ids = ObjectIdCollection()
+
+    for baseline in corridor.Baselines:
+        for region in baseline.BaselineRegions:
+            if export_solids:
+                # Create export parameters for solids
+                solid_params = ExportCorridorSolidsParams()
+                solid_params.ExportShapes = True
+                solid_params.ExportLinks = False  # Only collect solids
+
+                # Collect solids for each region
+                solid_ids = region.ExportSolids(solid_params, None)
+                for obj_id in solid_ids:
+                    collected_ids.Add(obj_id)
+
+            if export_bodies:
+                # Create export parameters for bodies
+                body_params = ExportCorridorSolidsParams()
+                body_params.ExportShapes = False
+                body_params.ExportLinks = True  # Only collect bodies
+
+                # Collect bodies for each region
+                body_ids = region.ExportSolids(body_params, None)
+                for obj_id in body_ids:
+                    collected_ids.Add(obj_id)
+
+    return collected_ids
+
+# Access the current document
+with aDoc.LockDocument():
+    with aDoc.Database as db:
+        with db.TransactionManager.StartTransaction() as tr:
+            # Get the block table and block table record for model space
+            bt = tr.GetObject(db.BlockTableId, OpenMode.ForRead)
+            btr = tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForRead)
+
+            # Collection for all collected object IDs
+            all_collected_ids = ObjectIdCollection()
+
+            # Iterate over each corridor name in the list
+            for corridor_name in corridor_names:
+                # Find the specified corridor
+                corridor_id = None
+                for obj_id in btr:
+                    obj = tr.GetObject(obj_id, OpenMode.ForRead)
+                    if isinstance(obj, Corridor) and obj.Name == corridor_name.Name:
+                        corridor_id = obj_id
+                        break
+                
+                if not corridor_id:
+                    OUT = "Corridor not found in the drawing: " + corridor_name
+                    continue
+                else:
+                    # Access the corridor
+                    corridor = tr.GetObject(corridor_id, OpenMode.ForRead)
+
+                    # Collect solids and bodies from the corridor
+                    collected_ids = CollectSolidsAndBodies(corridor, export_solids, export_bodies)
+                    
+                    # Add the collected ids to the collection
+                    for obj_id in collected_ids:
+                        all_collected_ids.Add(obj_id)
+
+            tr.Commit()
+
+# Output the collected object IDs
+OUT = all_collected_ids
