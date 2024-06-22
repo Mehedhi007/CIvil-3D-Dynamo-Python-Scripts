@@ -1,0 +1,1418 @@
+{
+  "Uuid": "59f14e87-610a-4cb2-886d-6435bae990bd",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "UNION_Automation_V1.1",
+  "ElementResolver": {
+    "ResolutionMap": {
+      "List": {
+        "Key": "List",
+        "Value": "BuiltIn.ds"
+      },
+      "AutoCAD.Solid": {
+        "Key": "Autodesk.AutoCAD.DynamoNodes.Solid",
+        "Value": "AutoCADNodes.dll"
+      }
+    }
+  },
+  "Inputs": [],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "import clr\r\nclr.AddReference('AcMgd')\r\nclr.AddReference('AcCoreMgd')\r\nclr.AddReference('AcDbMgd')\r\nclr.AddReference('AecBaseMgd')\r\nclr.AddReference('AecPropDataMgd')\r\nclr.AddReference('AeccDbMgd')\r\n\r\nfrom Autodesk.AutoCAD.Runtime import *\r\nfrom Autodesk.AutoCAD.ApplicationServices import Application\r\nfrom Autodesk.AutoCAD.DatabaseServices import *\r\nfrom Autodesk.AutoCAD.EditorInput import *\r\nfrom Autodesk.AutoCAD.Geometry import *\r\nfrom Autodesk.Civil.ApplicationServices import *\r\nfrom Autodesk.Civil.DatabaseServices import *\r\n\r\ndef are_bounding_boxes_intersecting(bounds1, bounds2):\r\n    return (bounds1.MinPoint.X <= bounds2.MaxPoint.X and bounds1.MaxPoint.X >= bounds2.MinPoint.X and\r\n            bounds1.MinPoint.Y <= bounds2.MaxPoint.Y and bounds1.MaxPoint.Y >= bounds2.MinPoint.Y and\r\n            bounds1.MinPoint.Z <= bounds2.MaxPoint.Z and bounds1.MaxPoint.Z >= bounds2.MinPoint.Z)\r\n\r\nmode = IN[0]\r\nkeep_copy = IN[1]\r\nunion_objects_list_ids= IN[2]\r\nselected_solids_for_union = []\r\nx = 0\r\n\r\nadoc = Application.DocumentManager.MdiActiveDocument\r\neditor = adoc.Editor\r\n\r\nwith adoc.LockDocument():\r\n    with adoc.Database as db:\r\n        with db.TransactionManager.StartTransaction() as trans:\r\n            bt = trans.GetObject(db.BlockTableId, OpenMode.ForWrite)\r\n            btr = trans.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite)\r\n            all_solids = list(union_objects_list_ids)\r\n            \r\n            if mode == 1:\r\n                message = \" Select Objects for Union: \"\r\n                editor.WriteMessage(\"\\n\" + message)\r\n                prompt_selection_result = editor.GetSelection()\r\n                if prompt_selection_result.Status == PromptStatus.OK:\r\n                    selection_set = prompt_selection_result.Value\r\n                    for objId in selection_set.GetObjectIds():\r\n                        obj = trans.GetObject(objId, OpenMode.ForWrite)\r\n                        if isinstance(obj, Solid3d):\r\n                            selected_solids_for_union.append(objId)\r\n                \r\n                if selected_solids_for_union:\r\n                    first_solid = trans.GetObject(selected_solids_for_union[0], OpenMode.ForWrite)\r\n                    if keep_copy:\r\n\t                    for solid_id in all_solids[0:]:\r\n\t                    \tsolid = trans.GetObject(solid_id, OpenMode.ForWrite)\r\n\t                    \tif isinstance(solid, Solid3d):\r\n\t                            cloned_solid = solid.Clone()\r\n\t                            btr.AppendEntity(cloned_solid)\r\n\t                            trans.AddNewlyCreatedDBObject(cloned_solid, True)\r\n                    for solid_id in selected_solids_for_union[1:]:\r\n                        solid = trans.GetObject(solid_id, OpenMode.ForWrite)\r\n                        if isinstance(solid, Solid3d):\r\n                            first_solid.BooleanOperation(BooleanOperationType.BoolUnite, solid)\r\n                            first_solid = trans.GetObject(first_solid.ObjectId, OpenMode.ForWrite)\r\n                    x = 1\r\n\r\n            elif mode == 2:\r\n                message = \" Select Objects for Union: \"\r\n                editor.WriteMessage(\"\\n\" + message)\r\n                prompt_selection_result = editor.GetSelection()\r\n                if prompt_selection_result.Status == PromptStatus.OK:\r\n                    selection_set = prompt_selection_result.Value\r\n                    for objId in selection_set.GetObjectIds():\r\n                        obj = trans.GetObject(objId, OpenMode.ForWrite)\r\n                        if isinstance(obj, Solid3d):\r\n                            selected_solids_for_union.append(objId)\r\n                \r\n                all_solids += selected_solids_for_union\r\n          \r\n                if all_solids:\r\n                    first_solid = trans.GetObject(all_solids[0], OpenMode.ForWrite)\r\n                    if keep_copy:\r\n\t                    for solid_id in all_solids[0:]:\r\n\t                    \tsolid = trans.GetObject(solid_id, OpenMode.ForWrite)\r\n\t                    \tif isinstance(solid, Solid3d):\r\n\t                            cloned_solid = solid.Clone()\r\n\t                            btr.AppendEntity(cloned_solid)\r\n\t                            trans.AddNewlyCreatedDBObject(cloned_solid, True)\r\n                    \r\n                    for solid_id in all_solids[1:]:\r\n                        solid = trans.GetObject(solid_id, OpenMode.ForWrite)\r\n                        if isinstance(solid, Solid3d):\r\n                            #if are_bounding_boxes_intersecting(first_solid.Bounds, solid.Bounds):\r\n                            first_solid.BooleanOperation(BooleanOperationType.BoolUnite, solid)\r\n                            first_solid = trans.GetObject(first_solid.ObjectId, OpenMode.ForWrite)\r\n                    x = 2\r\n\r\n            elif mode == 3:\r\n                if all_solids:\r\n                    first_solid = trans.GetObject(all_solids[0], OpenMode.ForWrite)\r\n                    if keep_copy:\r\n\t                    for solid_id in all_solids[0:]:\r\n\t                    \tsolid = trans.GetObject(solid_id, OpenMode.ForWrite)\r\n\t                    \tif isinstance(solid, Solid3d):\r\n\t                            cloned_solid = solid.Clone()\r\n\t                            btr.AppendEntity(cloned_solid)\r\n\t                            trans.AddNewlyCreatedDBObject(cloned_solid, True)\r\n                    for solid_id in all_solids[1:]:\r\n                        solid = trans.GetObject(solid_id, OpenMode.ForWrite)\r\n                        if isinstance(solid, Solid3d):\r\n                            #if are_bounding_boxes_intersecting(first_solid.Bounds, solid.Bounds):\r\n                            first_solid.BooleanOperation(BooleanOperationType.BoolUnite, solid)\r\n                            first_solid = trans.GetObject(first_solid.ObjectId, OpenMode.ForWrite)\r\n                    \r\n                    x = 3\r\n            \r\n            union_obj_id = first_solid.ObjectId\r\n            \r\n            trans.Commit()\r\n            pass\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = union_obj_id",
+      "Engine": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "550da7a3de3a4d50a5af01efa5425652",
+      "Inputs": [
+        {
+          "Id": "557b0f34eb844d438c89dfca064a47e8",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "effd12d155384992bbea5ff1221a7ca8",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "16f0ae3c4b5e4a2b890b70030bdb3a9a",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "98c18e9437a848639247ca00ec88e41b",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.IntegerSlider, CoreNodeModels",
+      "NodeType": "NumberInputNode",
+      "NumberType": "Integer",
+      "InputValue": 3,
+      "MaximumValue": 3,
+      "MinimumValue": 1,
+      "StepValue": 1,
+      "Id": "42a80f50e7524b028d3a7982eabf5ea1",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "5991982578f941fc899985c9c0a50de8",
+          "Name": "",
+          "Description": "Int64",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A slider that produces integer values."
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Autodesk.AutoCAD.DynamoNodes.Document.Layers",
+      "Id": "8f608469a9a94bc2b509e3f7b864afd1",
+      "Inputs": [
+        {
+          "Id": "ca873ad2767b4db9994790e741d2e7fb",
+          "Name": "document",
+          "Description": "Autodesk.AutoCAD.DynamoNodes.Document",
+          "UsingDefaultValue": false,
+          "Level": 1,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "36bbbd5ad6d64490ab6267c4cefb579a",
+          "Name": "string[]",
+          "Description": "string[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Get all layer names from the current document.\n\nDocument.Layers: string[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Autodesk.AutoCAD.DynamoNodes.Document.Current",
+      "Id": "1d59715007e44b27b37294c8724fb855",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "94fe1a82204d42e284084f88b00d1e9c",
+          "Name": "Document",
+          "Description": "Document",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Get the current AutoCAD document.\n\nDocument.Current: Document"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.GetItemAtIndex@var[]..[],int",
+      "Id": "06dc383a70264a929241a04cf922f9b5",
+      "Inputs": [
+        {
+          "Id": "7d5d196fd192463a88d8e07ce889a666",
+          "Name": "list",
+          "Description": "List to fetch an item from.\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "1df79938db514bbf9ad3b145cadf6f75",
+          "Name": "index",
+          "Description": "Index of the item to be fetched.\n\nint",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "16919586030e49deb15e2263e0fe2836",
+          "Name": "item",
+          "Description": "Item in the list at the given index.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Returns an item from the given list that's located at the specified index.\n\nList.GetItemAtIndex (list: var[]..[], index: int): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "[2,4];",
+      "Id": "3d961e27ecb14601b11a577f496b551b",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "758ad91fa8f24421923df5056b92c180",
+          "Name": "",
+          "Description": "Value of expression at line 1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows for DesignScript code to be authored directly"
+    },
+    {
+      "ConcreteType": "Autodesk.AutoCAD.DynamoNodes.AcObjectsOnLayer, AutoCADNodesUI",
+      "NodeType": "ExtensionNode",
+      "Id": "e285020838644bc4bc7d686e3c3d1944",
+      "Inputs": [
+        {
+          "Id": "ea6b6f3886e34ea89841085852a6647f",
+          "Name": "layer",
+          "Description": "",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "7d29a1f986c34ffd950f114c4e15f2de",
+          "Name": "block",
+          "Description": "",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "2118bfb5b4074d18953b787f8f11ff9c",
+          "Name": "Object[]",
+          "Description": "Object[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Select all objects on the layer."
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Autodesk.AutoCAD.DynamoNodes.Document.Current",
+      "Id": "8181f5f9caea41ae866f7ebc56e2feb6",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6a12eed9b1e4401d85e9aa9db5fe4950",
+          "Name": "Document",
+          "Description": "Document",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Get the current AutoCAD document.\n\nDocument.Current: Document"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Autodesk.AutoCAD.DynamoNodes.Document.ModelSpace",
+      "Id": "a59a2273fe4f4a4f8bfaf32355507980",
+      "Inputs": [
+        {
+          "Id": "f3d846ac52eb4008bf30adecba966360",
+          "Name": "document",
+          "Description": "Autodesk.AutoCAD.DynamoNodes.Document",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "129e9a58cdb54882942022a689181fa9",
+          "Name": "Block",
+          "Description": "Block",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Get the model space block table record.\n\nDocument.ModelSpace: Block"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "NodeType": "BooleanInputNode",
+      "InputValue": false,
+      "Id": "8ccd9a7d15654d1e84261867dc029018",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "df6568fb3e134263927612334eadac5c",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Selection between a true and false."
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\n\r\n# Add Assemblies for AutoCAD and Civil3D\r\nclr.AddReference('AcMgd')\r\nclr.AddReference('AcCoreMgd')\r\nclr.AddReference('AcDbMgd')\r\nclr.AddReference('AecBaseMgd')\r\nclr.AddReference('AecPropDataMgd')\r\nclr.AddReference('AeccDbMgd')\r\n\r\n# Import references from AutoCAD\r\nfrom Autodesk.AutoCAD.Runtime import *\r\nfrom Autodesk.AutoCAD.ApplicationServices import *\r\nfrom Autodesk.AutoCAD.EditorInput import *\r\nfrom Autodesk.AutoCAD.DatabaseServices import *\r\nfrom Autodesk.AutoCAD.Geometry import *\r\n\r\n# Import references from Civil3D\r\nfrom Autodesk.Civil.ApplicationServices import *\r\nfrom Autodesk.Civil.DatabaseServices import *\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\nunion_objects_list = IN[0]\r\nunion_objects_list_ids = []\r\n\r\nfor obj_list in union_objects_list:\r\n\tfor obj in obj_list:\r\n\t\tunion_objects_list_ids.append(obj.InternalObjectId)\r\n\r\nadoc = Application.DocumentManager.MdiActiveDocument\r\neditor = adoc.Editor\r\n\r\nwith adoc.LockDocument():\r\n    with adoc.Database as db:\r\n\r\n        with db.TransactionManager.StartTransaction() as t:\r\n            # Place your code below\r\n            # \r\n            #\r\n\r\n            # Commit before end transaction\r\n            #t.Commit()\r\n            pass\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = union_objects_list_ids\r\n",
+      "Engine": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "d95452e165b541c38e28f58af9e627bf",
+      "Inputs": [
+        {
+          "Id": "f58424c40788431fbd4d50b196510288",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "4cbfed42244e420ba2785ede621994a1",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Autodesk.AutoCAD.DynamoNodes.Layer.Create@string,Autodesk.AutoCAD.DynamoNodes.Document,DSCore.Color,string,string",
+      "Id": "23f4ba086b01478aa6c7c6e93353973d",
+      "Inputs": [
+        {
+          "Id": "b876d4c3abaa412e9d8b7773cea16e48",
+          "Name": "name",
+          "Description": "string",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fd87cbd13fe54297a9f1708c9b441210",
+          "Name": "document",
+          "Description": "Document",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "3b65e6c250734bdd9273aaa2cdc94789",
+          "Name": "color",
+          "Description": "Color\nDefault value : DSCore.Color.ByARGB(255, 255, 255, 255)",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "3d21ba45c3e74ba5a7734d6735b55d0f",
+          "Name": "linetype",
+          "Description": "string\nDefault value : \"Continuous\"",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "46ee25d1f88c48628f53793e89fbb0ae",
+          "Name": "lineweight",
+          "Description": "string\nDefault value : \"ByLineWeightDefault\"",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ced969169e9640a296db5c73ad93cdd2",
+          "Name": "Layer",
+          "Description": "Layer",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Create a layer in the document.\n\nLayer.Create (name: string, document: Document, color: Color = DSCore.Color.ByARGB(255, 255, 255, 255), linetype: string = \"Continuous\", lineweight: string = \"ByLineWeightDefault\"): Layer"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "OBJECT-UNION-1",
+      "Id": "46de9cd554d445ff89f600648837190c",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b73f031ed8e547fc8f127e353a8a1253",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Creates a string."
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Autodesk.AutoCAD.DynamoNodes.Document.Current",
+      "Id": "59b7332cb21a4b92b232654e3aa4f613",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "2f9d48463d9043ea9c1496026e095838",
+          "Name": "Document",
+          "Description": "Document",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Get the current AutoCAD document.\n\nDocument.Current: Document"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.ColorPalette, CoreNodeModels",
+      "InputValue": {
+        "R": 175,
+        "G": 238,
+        "B": 238,
+        "A": 255
+      },
+      "NodeType": "ColorInputNode",
+      "Id": "b4a2396a7d2e4bf98fedf600428f205c",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "3cc07dadfbde47649de3006ee53735df",
+          "Name": "Color",
+          "Description": "Selected Color.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Select a Color from the palette"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "Continuous",
+      "Id": "49df24ea332a4d42848e41469aa74916",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f0c568d3b25e43159c19fdaedd25a91e",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Creates a string."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "9f014bfdcce547af8df8d2a19a978a98",
+      "Inputs": [
+        {
+          "Id": "b6ab6cca225944e09af154f4eabbef2b",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "844668e86cb6478c82d54b0f547ef506",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "e68150990c194e9c99eda81db373d0ea",
+      "Inputs": [
+        {
+          "Id": "7429feb156084ea6b42ca55881c007c5",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "36a7e5196b5b498d9b04efdf7e967846",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "f87e960fc7354c1bb881478b8ca1682c",
+      "Inputs": [
+        {
+          "Id": "042d241499584698972ca46ff53bd43a",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "c531442d67d14858ab9b7fb4d1cf7998",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "89418c539e5d42d99b9d202eddbee387",
+      "Inputs": [
+        {
+          "Id": "bee43f13ea744eddb93f31feca0cec99",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "feb2aeadb2ac4a76a9253494578787a4",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Autodesk.AutoCAD.DynamoNodes.Layer.Name",
+      "Id": "748d2b32b2f3485a82f5f6d184bd1042",
+      "Inputs": [
+        {
+          "Id": "9b241afc74ba4d74beeb4d64e7efd39c",
+          "Name": "layer",
+          "Description": "Autodesk.AutoCAD.DynamoNodes.Layer",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "e149e99efd8e419da8300ef47fd48282",
+          "Name": "string",
+          "Description": "string",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Get the name of the layer.\n\nLayer.Name: string"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "# Load the Python Standard and DesignScript Libraries\r\nimport sys\r\nimport clr\r\n\r\n# Add Assemblies for AutoCAD and Civil3D\r\nclr.AddReference('AcMgd')\r\nclr.AddReference('AcCoreMgd')\r\nclr.AddReference('AcDbMgd')\r\nclr.AddReference('AecBaseMgd')\r\nclr.AddReference('AecPropDataMgd')\r\nclr.AddReference('AeccDbMgd')\r\n\r\n# Import references from AutoCAD\r\nfrom Autodesk.AutoCAD.Runtime import *\r\nfrom Autodesk.AutoCAD.ApplicationServices import *\r\nfrom Autodesk.AutoCAD.EditorInput import *\r\nfrom Autodesk.AutoCAD.DatabaseServices import *\r\nfrom Autodesk.AutoCAD.Geometry import *\r\n\r\n# Import references from Civil3D\r\nfrom Autodesk.Civil.ApplicationServices import *\r\nfrom Autodesk.Civil.DatabaseServices import *\r\n\r\n# The inputs to this node will be stored as a list in the IN variables.\r\nunion_obj_id = IN[0]\r\nnew_layer_name = IN[1]\r\n\r\nadoc = Application.DocumentManager.MdiActiveDocument\r\neditor = adoc.Editor\r\n\r\nwith adoc.LockDocument():\r\n    with adoc.Database as db:\r\n\r\n        with db.TransactionManager.StartTransaction() as trans:\r\n            # Place your code below\r\n            bt = trans.GetObject(db.BlockTableId, OpenMode.ForWrite)\r\n            btr = trans.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite)\r\n            if union_obj_id is not None:\r\n            \tunion_obj = trans.GetObject(union_obj_id, OpenMode.ForWrite)\r\n            \tunion_obj.Layer = new_layer_name\r\n            \tfinal_object = union_obj\r\n            trans.Commit()\r\n            pass\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = final_object\r\n",
+      "Engine": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "5ac24cccab5a47ee9152cd4cd3480f7c",
+      "Inputs": [
+        {
+          "Id": "8ba5e2a6c00a443cbb3b461f8599c94d",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "f0635fe491dd4398bee494b1da8c95f8",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "f64f91eea7a649eb9bd3ebf0289d2c78",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "b49e3c8b7c1540cdb7e7679554b3b72b",
+      "Inputs": [
+        {
+          "Id": "9c9afc03765f43af8f01d8ee2493ba90",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "560e4d7732b343bcbd578942cdd0b9b1",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "f7113367879e46368e6c70e2be83ef23",
+      "Inputs": [
+        {
+          "Id": "fd20bfeed24b4d1c9a76aa0a1b3a604e",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "4745a4ea5b634c8492a2df836b4fa2e8",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "import clr\r\nclr.AddReference('AcMgd')\r\nclr.AddReference('AcCoreMgd')\r\nclr.AddReference('AcDbMgd')\r\nclr.AddReference('AecBaseMgd')\r\nclr.AddReference('AecPropDataMgd')\r\nclr.AddReference('AeccDbMgd')\r\n\r\nfrom Autodesk.AutoCAD.Runtime import *\r\nfrom Autodesk.AutoCAD.ApplicationServices import Application\r\nfrom Autodesk.AutoCAD.DatabaseServices import *\r\nfrom Autodesk.AutoCAD.EditorInput import *\r\nfrom Autodesk.AutoCAD.Geometry import *\r\nfrom Autodesk.Civil.ApplicationServices import *\r\nfrom Autodesk.Civil.DatabaseServices import *\r\n\r\nboolean_decision = IN[0]\r\nsolid3d_id = IN[1].ObjectId # Input should be ObjectId of the Solid3d\r\n\r\nadoc = Application.DocumentManager.MdiActiveDocument\r\neditor = adoc.Editor\r\n\r\n\r\n\r\nwith adoc.LockDocument():\r\n\twith adoc.Database as db:\r\n\t\twith db.TransactionManager.StartTransaction() as trans:\r\n\t\t\tbt = trans.GetObject(db.BlockTableId, OpenMode.ForWrite)\r\n\t\t\tbtr = trans.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite)\r\n\t\t\tsolid3d = trans.GetObject(solid3d_id, OpenMode.ForWrite)\r\n\t\t\tif isinstance(solid3d, Solid3d):\r\n\t\t\t\tlayer_name = solid3d.Layer\r\n\t\t\t\tlayer_table = trans.GetObject(db.LayerTableId, OpenMode.ForRead)\r\n\t\t\t\tif boolean_decision:\r\n\t\t\t\t\tlayer_table_record = trans.GetObject(layer_table[layer_name], OpenMode.ForWrite)\r\n\t\t\t\t\tlayer_table_record.IsFrozen = True\r\n\t\t\ttrans.Commit()\r\n\t\t\tpass\r\n\r\n# Assign your output to the OUT variable.\r\nOUT = IN[1]",
+      "Engine": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "4e03a39506e64e3ea2efcf5319af6d5b",
+      "Inputs": [
+        {
+          "Id": "616b64510f1841029a58c9d90b0a79f9",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "45d92653db7e4f939307d116d7fbc39b",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "3b10098e8378473ea552372895f074e5",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "NodeType": "BooleanInputNode",
+      "InputValue": false,
+      "Id": "d3f107bfdccc467892bcfaf051ffa0db",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "9344e687a8274724b89cbf99e055f8fb",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Selection between a true and false."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "ea2a78656b4e443ba9cf8c83ef9fca86",
+      "Inputs": [
+        {
+          "Id": "7ec97f8fe71941a992d0b7951f0d3d7e",
+          "Name": "",
+          "Description": "Node to show output from",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ebbfd7858a8b4ba384a3f0eaa0f495cf",
+          "Name": "",
+          "Description": "Node output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualize the node's output"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "98c18e9437a848639247ca00ec88e41b",
+      "End": "bee43f13ea744eddb93f31feca0cec99",
+      "Id": "bbe62a50376d44e5b8aaa330a156130b",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "98c18e9437a848639247ca00ec88e41b",
+      "End": "8ba5e2a6c00a443cbb3b461f8599c94d",
+      "Id": "060b5c936dd445cdb97259eb327ef572",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "5991982578f941fc899985c9c0a50de8",
+      "End": "557b0f34eb844d438c89dfca064a47e8",
+      "Id": "b6fdd82738fd4f9f88a5df9b9bb78858",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "36bbbd5ad6d64490ab6267c4cefb579a",
+      "End": "7d5d196fd192463a88d8e07ce889a666",
+      "Id": "57477b31ff4146ba83681576488ad6a5",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "36bbbd5ad6d64490ab6267c4cefb579a",
+      "End": "b6ab6cca225944e09af154f4eabbef2b",
+      "Id": "919aadc9815d4e11b0a3a5e2c5870d33",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "94fe1a82204d42e284084f88b00d1e9c",
+      "End": "ca873ad2767b4db9994790e741d2e7fb",
+      "Id": "e865819d449544a98304c389911e98fe",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "16919586030e49deb15e2263e0fe2836",
+      "End": "ea6b6f3886e34ea89841085852a6647f",
+      "Id": "7f4343e0f2994fd5b8914aaefadac741",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "758ad91fa8f24421923df5056b92c180",
+      "End": "1df79938db514bbf9ad3b145cadf6f75",
+      "Id": "7f5b71c8eaed43bca43affeee9f10ccb",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "2118bfb5b4074d18953b787f8f11ff9c",
+      "End": "f58424c40788431fbd4d50b196510288",
+      "Id": "1e03f082779a48de8c14f07e9d96d47a",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "2118bfb5b4074d18953b787f8f11ff9c",
+      "End": "7429feb156084ea6b42ca55881c007c5",
+      "Id": "893eb73e3d7e474395a84fe66e51bf77",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6a12eed9b1e4401d85e9aa9db5fe4950",
+      "End": "f3d846ac52eb4008bf30adecba966360",
+      "Id": "fefe9cb801f74dc1910d562088f180d5",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "129e9a58cdb54882942022a689181fa9",
+      "End": "7d29a1f986c34ffd950f114c4e15f2de",
+      "Id": "df0a6bb2b0ac449598ee9586bc72cbb4",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "df6568fb3e134263927612334eadac5c",
+      "End": "effd12d155384992bbea5ff1221a7ca8",
+      "Id": "4e51b2394649464bbc9cce82dc4c4ebb",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "4cbfed42244e420ba2785ede621994a1",
+      "End": "16f0ae3c4b5e4a2b890b70030bdb3a9a",
+      "Id": "7f41d001baea4d1c8ac45d720b4b14a1",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "4cbfed42244e420ba2785ede621994a1",
+      "End": "042d241499584698972ca46ff53bd43a",
+      "Id": "849255a377aa424f9aad76a4ea77dd89",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "ced969169e9640a296db5c73ad93cdd2",
+      "End": "9b241afc74ba4d74beeb4d64e7efd39c",
+      "Id": "ba23624dceca4f12921b3089fa6fb6e4",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "b73f031ed8e547fc8f127e353a8a1253",
+      "End": "b876d4c3abaa412e9d8b7773cea16e48",
+      "Id": "d53d69d6084445a6912777068e8bf483",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "2f9d48463d9043ea9c1496026e095838",
+      "End": "fd87cbd13fe54297a9f1708c9b441210",
+      "Id": "e58af9dc88a44e178468914e8cc429ba",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "3cc07dadfbde47649de3006ee53735df",
+      "End": "3b65e6c250734bdd9273aaa2cdc94789",
+      "Id": "8af93ed417db42dc943c16c8104bbc06",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f0c568d3b25e43159c19fdaedd25a91e",
+      "End": "3d21ba45c3e74ba5a7734d6735b55d0f",
+      "Id": "bd2c8329ed3a45cca335aafda2279d8e",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e149e99efd8e419da8300ef47fd48282",
+      "End": "f0635fe491dd4398bee494b1da8c95f8",
+      "Id": "c7792ed00b9a4ebfafaf31ab1c061a38",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e149e99efd8e419da8300ef47fd48282",
+      "End": "9c9afc03765f43af8f01d8ee2493ba90",
+      "Id": "d09d313f02754451acd3ac0ea0d4ac8d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f64f91eea7a649eb9bd3ebf0289d2c78",
+      "End": "fd20bfeed24b4d1c9a76aa0a1b3a604e",
+      "Id": "8c05f8bc1ed643db9a4ef03125875e2a",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f64f91eea7a649eb9bd3ebf0289d2c78",
+      "End": "45d92653db7e4f939307d116d7fbc39b",
+      "Id": "cb83c2fe05d94f2abcc155aaa3759481",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "3b10098e8378473ea552372895f074e5",
+      "End": "7ec97f8fe71941a992d0b7951f0d3d7e",
+      "Id": "1f3591235dc949f5965696f387761643",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "9344e687a8274724b89cbf99e055f8fb",
+      "End": "616b64510f1841029a58c9d90b0a79f9",
+      "Id": "1698b5e16d804ea5bbeefc548100dc1d",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.13",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "None",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.13.1.3887",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "Background Preview",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Name": "UNION PY SCRIPT",
+        "ShowGeometry": true,
+        "Id": "550da7a3de3a4d50a5af01efa5425652",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 982.849598337348,
+        "Y": -467.94411642980515
+      },
+      {
+        "Name": "OPTIONS:       1 = Select Objects From The Screen       2 = Select Objects From The Screen + Provide Layer      3 = Select Objects From The Layers Only ",
+        "ShowGeometry": true,
+        "Id": "42a80f50e7524b028d3a7982eabf5ea1",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -527.56912259649471,
+        "Y": -932.99531729237071
+      },
+      {
+        "Name": "LIST OF ALL THE LAYERS",
+        "ShowGeometry": true,
+        "Id": "8f608469a9a94bc2b509e3f7b864afd1",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -1032.8558485575627,
+        "Y": -254.37729687455968
+      },
+      {
+        "Name": "Document.Current",
+        "ShowGeometry": true,
+        "Id": "1d59715007e44b27b37294c8724fb855",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -1358.49784165272,
+        "Y": -253.43424673400563
+      },
+      {
+        "Name": "LIST OF THE SELECTED LAYERS",
+        "ShowGeometry": true,
+        "Id": "06dc383a70264a929241a04cf922f9b5",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -476.338047212711,
+        "Y": -254.71112965834305
+      },
+      {
+        "Name": "Enter the index number of Desired Layers For UNION",
+        "ShowGeometry": true,
+        "Id": "3d961e27ecb14601b11a577f496b551b",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -1232.8491004654027,
+        "Y": 300.92736711137604
+      },
+      {
+        "Name": "All Objects on Layer",
+        "ShowGeometry": true,
+        "Id": "e285020838644bc4bc7d686e3c3d1944",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 24.759722189320996,
+        "Y": -254.46721037891774
+      },
+      {
+        "Name": "Document.Current",
+        "ShowGeometry": true,
+        "Id": "8181f5f9caea41ae866f7ebc56e2feb6",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -581.578629575642,
+        "Y": 16.014086497239873
+      },
+      {
+        "Name": "Document.ModelSpace",
+        "ShowGeometry": true,
+        "Id": "a59a2273fe4f4a4f8bfaf32355507980",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -293.38078693884927,
+        "Y": 15.383246198319966
+      },
+      {
+        "Name": "Keep Copy",
+        "ShowGeometry": true,
+        "Id": "8ccd9a7d15654d1e84261867dc029018",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 465.50894300228106,
+        "Y": -432.33636123149807
+      },
+      {
+        "Name": "Convert to Object ID",
+        "ShowGeometry": true,
+        "Id": "d95452e165b541c38e28f58af9e627bf",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 429.4126538191847,
+        "Y": -252.48720485742837
+      },
+      {
+        "Name": "CREATE LAYER IF THE UNION OBJECT",
+        "ShowGeometry": true,
+        "Id": "23f4ba086b01478aa6c7c6e93353973d",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1955.1839340912184,
+        "Y": -226.35707852373429
+      },
+      {
+        "Name": "New Layer Name",
+        "ShowGeometry": true,
+        "Id": "46de9cd554d445ff89f600648837190c",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1404.4480151267358,
+        "Y": -217.27311959189927
+      },
+      {
+        "Name": "This Document",
+        "ShowGeometry": true,
+        "Id": "59b7332cb21a4b92b232654e3aa4f613",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1399.4161915596571,
+        "Y": -85.202968022439734
+      },
+      {
+        "Name": "Color Palette",
+        "ShowGeometry": true,
+        "Id": "b4a2396a7d2e4bf98fedf600428f205c",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1407.23611579534,
+        "Y": 51.5155897214355
+      },
+      {
+        "Name": "Layer Name",
+        "ShowGeometry": true,
+        "Id": "49df24ea332a4d42848e41469aa74916",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1402.2545276305184,
+        "Y": 202.93892972961771
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "9f014bfdcce547af8df8d2a19a978a98",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -716.00175730779824,
+        "Y": -606.222279350618
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "e68150990c194e9c99eda81db373d0ea",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 415.13754225188325,
+        "Y": -58.884904940526553
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "f87e960fc7354c1bb881478b8ca1682c",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 977.72263797485721,
+        "Y": -63.46792760553933
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "89418c539e5d42d99b9d202eddbee387",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1436.6779466033513,
+        "Y": -784.055667416777
+      },
+      {
+        "Name": "Layer.Name",
+        "ShowGeometry": true,
+        "Id": "748d2b32b2f3485a82f5f6d184bd1042",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2400.689591435756,
+        "Y": -227.31954221629991
+      },
+      {
+        "Name": "SET LAYER TO OBJECT + OUTPUT OBJECT",
+        "ShowGeometry": true,
+        "Id": "5ac24cccab5a47ee9152cd4cd3480f7c",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2732.0512964904242,
+        "Y": -466.90598075612428
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "b49e3c8b7c1540cdb7e7679554b3b72b",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2726.7998527965242,
+        "Y": -228.93648362120649
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "f7113367879e46368e6c70e2be83ef23",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3372.0023740956422,
+        "Y": -182.74894079782803
+      },
+      {
+        "Name": "Freeze Union Object?",
+        "ShowGeometry": true,
+        "Id": "4e03a39506e64e3ea2efcf5319af6d5b",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3463.189697239502,
+        "Y": -502.90893557072212
+      },
+      {
+        "Name": "Boolean",
+        "ShowGeometry": true,
+        "Id": "d3f107bfdccc467892bcfaf051ffa0db",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3096.265247457065,
+        "Y": -688.12920712074185
+      },
+      {
+        "Name": "Watch",
+        "ShowGeometry": true,
+        "Id": "ea2a78656b4e443ba9cf8c83ef9fca86",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3848.5028872632593,
+        "Y": -505.42182800287014
+      }
+    ],
+    "Annotations": [
+      {
+        "Id": "bcb9cbd796144d5d9158468ca6e6dcd7",
+        "Title": "SELECT MODE OF UNION",
+        "DescriptionText": "",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "42a80f50e7524b028d3a7982eabf5ea1"
+        ],
+        "HasNestedGroups": false,
+        "Left": -537.56912259649471,
+        "Top": -1005.9953172923707,
+        "Width": 1199.0,
+        "Height": 205.0,
+        "FontSize": 36.0,
+        "InitialTop": -932.99531729237071,
+        "InitialHeight": 145.0,
+        "TextblockHeight": 63.0,
+        "Background": "#FFA4E1FF"
+      },
+      {
+        "Id": "f6eacd61837d403ab610249c701fd5a8",
+        "Title": "PLEASE ENTER THE DESIRED LAYER(S) INDEX",
+        "DescriptionText": "",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "3d961e27ecb14601b11a577f496b551b"
+        ],
+        "HasNestedGroups": false,
+        "Left": -1242.8491004654027,
+        "Top": 184.92736711137604,
+        "Width": 489.0,
+        "Height": 248.0,
+        "FontSize": 36.0,
+        "InitialTop": 300.92736711137604,
+        "InitialHeight": 145.0,
+        "TextblockHeight": 106.0,
+        "Background": "#FFC1D676"
+      },
+      {
+        "Id": "ef452bbc50634dbf9a773391b52dbfc6",
+        "Title": "Keep Parent Object Copies Before UNION?",
+        "DescriptionText": "",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "8ccd9a7d15654d1e84261867dc029018"
+        ],
+        "HasNestedGroups": false,
+        "Left": 455.50894300228106,
+        "Top": -721.33636123149813,
+        "Width": 209.0,
+        "Height": 421.00000000000006,
+        "FontSize": 36.0,
+        "InitialTop": -432.33636123149807,
+        "InitialHeight": 145.0,
+        "TextblockHeight": 279.0,
+        "Background": "#FFD4B6DB"
+      },
+      {
+        "Id": "cca51c61c0d449cf87a1c43ee8bd633f",
+        "Title": "Create New Layer of the Union Object\r\n",
+        "DescriptionText": "",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "23f4ba086b01478aa6c7c6e93353973d",
+          "46de9cd554d445ff89f600648837190c",
+          "59b7332cb21a4b92b232654e3aa4f613",
+          "b4a2396a7d2e4bf98fedf600428f205c",
+          "49df24ea332a4d42848e41469aa74916"
+        ],
+        "HasNestedGroups": false,
+        "Left": 1389.4161915596571,
+        "Top": -342.35707852373429,
+        "Width": 926.76774253156123,
+        "Height": 677.296008253352,
+        "FontSize": 36.0,
+        "InitialTop": -226.35707852373429,
+        "InitialHeight": 574.296008253352,
+        "TextblockHeight": 106.0,
+        "Background": "#FFB5B5B5"
+      },
+      {
+        "Id": "3f50029a4a3f43f5bdcfc2260ee57a85",
+        "Title": "Freeze Union Object Layer?",
+        "DescriptionText": "",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "d3f107bfdccc467892bcfaf051ffa0db"
+        ],
+        "HasNestedGroups": false,
+        "Left": 3086.265247457065,
+        "Top": -891.12920712074185,
+        "Width": 209.0,
+        "Height": 335.0,
+        "FontSize": 36.0,
+        "InitialTop": -688.12920712074185,
+        "InitialHeight": 145.0,
+        "TextblockHeight": 193.0,
+        "Background": "#FF71C6A8"
+      }
+    ],
+    "X": 406.40232327668593,
+    "Y": 487.53732701471927,
+    "Zoom": 0.20304208369014398
+  }
+}
